@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from deepface import DeepFace
 import os
+import uuid
 
 def extract_and_save_face(img_path, emotion, output_dir="/Users/kim-woohyeon/Desktop"):
     """
@@ -44,6 +45,66 @@ def extract_and_save_face(img_path, emotion, output_dir="/Users/kim-woohyeon/Des
     except Exception as e:
         print(f"오류 발생: {e}")
         return None
+
+
+def extract_and_save_face2(img,output_path):
+    try:
+        #raw 이미지 데이터
+        face_bgr = extract_faceImage(img)
+        
+        #이미지 저장
+        save_faceImage(output_path,face_bgr)
+
+    except Exception as e:
+        print(f"오류 발생: {e}")
+        raise
+
+
+def extract_faceImage(img):
+    try:
+        # 얼굴 검출 (Numpy array를 직접 사용)
+        faces = DeepFace.extract_faces(img_path=img, detector_backend="retinaface", enforce_detection=True)
+
+        if not faces:
+            raise ValueError("[ERROR] 얼굴이 검출되지 않았습니다.")
+
+        face_data = faces[0]
+        face = face_data["face"]
+
+        face_uint8 = (face * 255).astype(np.uint8)
+        face_bgr = cv2.cvtColor(face_uint8, cv2.COLOR_RGB2BGR)
+
+        return face_bgr
+    except Exception as e:
+        print(f"오류 발생: {e}")
+        raise
+
+def save_faceImage(output_path,face_bgr):
+    try:
+        cv2.imwrite(output_path, face_bgr)
+        print(f"정렬된 얼굴 이미지가 {output_path}에 저장되었습니다.")
+    except Exception as e:
+        print(f"오류 발생: {e}")
+        raise
+
+
+def convert_file_to_cv2_image(image_file):
+    file_bytes = np.frombuffer(image_file.read(), np.uint8)
+    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    return img
+    
+def create_fileName(original_filename,emotion):
+    
+    #확장자 분리
+    name_part, ext_part = os.path.splitext(original_filename)
+
+    #UUID 생성
+    unique_id = uuid.uuid4().hex
+
+    new_filename = f"{unique_id}_{name_part}_{emotion}{ext_part}"
+
+    return new_filename
+
 
 if __name__ == "__main__":
     # 테스트용 경로와 감정 입력
