@@ -16,7 +16,7 @@ app.config['DEBUG'] = config.DEBUG
 
 
 ## 이미지 리턴하는 방식 약 3초
-@app.route('/api/v1/image/arrange',methods=['post'])
+@app.route('/api/v1/image/align-crop',methods=['post'])
 def arrange_UserImage() :
     try:
         image_file = request.files.get('image')
@@ -43,7 +43,7 @@ def arrange_UserImage() :
     
 
 ## 이미지 정렬 후 저장하는 방식
-@app.route('/api/v2/image/arrange',methods=['post'])
+@app.route('/api/v2/image/align-crop',methods=['post'])
 def arrange_and_upload_userImage() :
 
     save_path = request.form.get('save_path')
