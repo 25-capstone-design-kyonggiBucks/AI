@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from config import UPLOAD_FOLDER, DEBUG
 
+# config에 정의돈 UPLDOADFOLDER + rquest_path
 def resolve_uploaded_file_path(request_path: str):
 
     request_path = request_path.lstrip('/')
