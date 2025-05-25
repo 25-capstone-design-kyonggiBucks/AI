@@ -8,6 +8,7 @@ import io
 import config
 import forImage
 import emotion as emotion_enum
+import customVideoTest
 
 app = Flask(__name__)
 
@@ -100,6 +101,51 @@ def arrange_and_upload_userImage():
             "success": False,
             "message": f"파일 처리 중 오류 발생: {str(e)}"
         }), 500
+
+@app.route('/api/custom_video',methods=['post'])
+def create_video_with_defaultVoice():
+
+    data = request.get_json()
+    title = data.get("title")
+    print(f"파일명 = {title}")
+
+    errors = validate_image_paths(data)
+
+    if errors:
+        return jsonify({
+            "status": "error",
+            "message": "파일 검증 실패",
+        }), 400
+    
+    video_url = customVideoTest.copy_video(video_path='/Users/byeonjuhyeong/Desktop/uploads/videos/default/toystory.mp4',
+                               output_path='/Users/byeonjuhyeong/Desktop/uploads/videos/custom')
+    video_name = os.path.basename(video_url)
+
+    # 파일들이 모두 존재함
+    return jsonify({
+        "videoName" : video_name,
+        "videoURL" : video_url
+    }), 200
+
+
+
+def validate_image_paths(data):
+    errors = []
+
+    for key in ['happyImageURL', 'sadImageURL', 'surprisedImageURL', 'angryImageURL']:
+        url_path = data.get(key)
+        relative_path = url_path.lstrip('/')
+        if url_path:
+            if url_path.startswith('/uploads/'):
+                absolute_path = os.path.join(app.config['UPLOAD_FOLDER'], relative_path)
+            else:
+                errors.append(f"{key}의 경로 형식이 잘못되었습니다: {url_path}")
+                continue
+
+            if not os.path.isfile(absolute_path):
+                errors.append(f"{key} 파일이 존재하지 않습니다: {absolute_path}")
+    
+    return errors
 
 if __name__ == "__main__":
     print(f"서버 시작: 설정된 업로드 폴더 = {app.config['UPLOAD_FOLDER']}")

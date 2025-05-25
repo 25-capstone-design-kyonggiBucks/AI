@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from deepface import DeepFace
 import os
+import uuid
 
 def save_detected_face(frame, emotion_label, output_dir="output", face_index=0):
     try:
@@ -50,6 +51,21 @@ def analyze_video_emotions(video_path, threshold_dict=None, frame_interval=30):
 
     cap.release()
     print("영상 분석 완료.")
+
+def create_fileName(original_filename):
+    # 확장자 분리
+    name_part, ext_part = os.path.splitext(original_filename)
+    
+    # UUID 생성 - 스프링 서버와 동일한 형식으로
+    unique_id = str(uuid.uuid4())
+    
+    # 스프링 서버와 호환되는 파일명 형식
+    new_filename = f"{unique_id}_{original_filename}"
+    
+    # 디버깅 정보
+    print(f"생성된 파일명: {new_filename}")
+    
+    return new_filename
 
 if __name__ == "__main__":
     video_path = "/Users/kim-woohyeon/Desktop/sample.mp4"
