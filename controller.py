@@ -62,8 +62,8 @@ def arrange_and_upload_userImage():
             return jsonify({"success": False, "message": f"Invalid emotion value: {emotion}"}), 400
         
         # 경로 중복 문제 해결
-        # 스프링 서버의 설정에 맞게 uploads/images로 고정
-        images_path = 'uploads/images'
+        # 스프링 서버의 설정에 맞게 images로 변경 (app.config['UPLOAD_FOLDER']에 이미 uploads가 포함됨)
+        images_path = 'images'
         
         # 저장할 전체 경로 생성
         output_dir = os.path.join(app.config['UPLOAD_FOLDER'], images_path)
@@ -79,7 +79,7 @@ def arrange_and_upload_userImage():
         output_path = os.path.normpath(output_path)  # 경로 정규화
         
         # 스프링에서 인식할 수 있는 URL 경로 (앞에 / 추가)
-        image_url = f"/{images_path}/{new_filename}"
+        image_url = f"/uploads/{images_path}/{new_filename}"
         
         img = forImage.convert_file_to_cv2_image(image_file)
         
@@ -228,6 +228,7 @@ def create_video_with_defaultVoice():
                 if relative_path.startswith('uploads/'):
                     relative_path = relative_path.replace('uploads/', '', 1)
                 
+                # 절대 경로 생성 (app.config['UPLOAD_FOLDER']는 이미 uploads 경로를 포함하고 있음)
                 src_path = os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], relative_path))
                 print(f"복사: {expr} -> {src_path}")
                 
