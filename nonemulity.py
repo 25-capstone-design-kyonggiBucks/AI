@@ -13,7 +13,7 @@ def overlay_face_on_placeholde2(frame, face_img, frame_idx=None,bbox=None):
         return frame
     else:
         last_bbox = bbox
-        x0, y0, w, h = bbox
+        x0, y0, w, h = map(int,bbox)
 
     # 9) 얼굴 오버레이
     face_w = face_h = int(w * 0.9)
