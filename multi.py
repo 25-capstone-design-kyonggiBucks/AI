@@ -4,6 +4,9 @@ import json
 import numpy as np
 import cashUtil
 import time
+from multiprocessing import Process, Queue, cpu_count,SimpleQueue
+from threading import Thread
+
 # ——————————————————————————————
 # 설정 경로 및 파일 (테스트용)
 video_path      = '/Users/byeonjuhyeong/Desktop/uploads/videos/default/axe.mp4'
@@ -13,13 +16,11 @@ fallback_img    = 'C:/Users/winte/Desktop/uploads/images/happy.jpg'
 output_path     = 'C:/Users/winte/Desktop/uploads/videos/custom/test_output.mp4'
 # ——————————————————————————————
 
-# 전역 변수: 마지막 바운딩 박스 저장용
-last_bbox = None  # (x0, y0, w, h)
 
 # 디버그 모드: True면 debug/ 폴더에 이미지 저장
 DEBUG = False
 
-def overlay_face_on_placeholder(frame, face_img, frame_idx=None):
+def overlay_face_on_placeholder(frame, face_img, frame_idx=None,last_bbox=None):
     """
     1) HSV 임계값 완화 + 마스크 팽창(dilate)
     2) HoughLinesP 파라미터 완화
@@ -28,7 +29,6 @@ def overlay_face_on_placeholder(frame, face_img, frame_idx=None):
        → d > MAX_SHIFT(r-based) 이면 이전 박스 재사용
     5) r*0.9 배율로 얼굴 크기(정사각형) 설정
     """
-    global last_bbox
     Hf, Wf = frame.shape[:2]
 
     # 1) HSV 변환
@@ -188,7 +188,7 @@ def overlay_face_on_placeholder(frame, face_img, frame_idx=None):
 
     blended = (roi*(1-mask_3c) + face_rgb*mask_3c).astype(np.uint8)
     frame[offset_y:offset_y + face_h, offset_x:offset_x + face_w] = blended
-    return frame
+    return frame ,bbox
 
 def process_video(video_path, json_path, expressions_dir, fallback_img, output_path):
     """
@@ -204,8 +204,6 @@ def process_video(video_path, json_path, expressions_dir, fallback_img, output_p
     Returns:
         str: 출력 비디오 경로
     """
-    global last_bbox
-    last_bbox = None  # 함수 호출 시 초기화
     
     # 경로 정규화
     video_path = os.path.normpath(video_path)
@@ -259,34 +257,114 @@ def process_video(video_path, json_path, expressions_dir, fallback_img, output_p
     
     out    = cv2.VideoWriter(output_path, fourcc, fps, (W, H))
 
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    chunk_size = total_frames // 3
+
+    ranges = [
+        (0, chunk_size),
+        (chunk_size, 2 * chunk_size),
+        (2 * chunk_size, total_frames)
+    ]
+
+    cap1 = cv2.VideoCapture(video_path)
+    cap2 = cv2.VideoCapture(video_path)
+    cap3 = cv2.VideoCapture(video_path)
+
+
+    
+    q_left  = Queue(maxsize=16)
+    q_mid = Queue(maxsize=16)
+    q_right = Queue(maxsize=16)
+
+    q2 = Queue(maxsize=1000)
+
+    reader1 = Thread(target=read_frames, args=(cap1, annotations, q_left, ranges[0]))
+    reader2 = Thread(target=read_frames, args=(cap2, annotations, q_mid,  ranges[1]))
+    reader3 = Thread(target=read_frames, args=(cap3, annotations, q_right, ranges[2]))
+
+
+    processor = Process(target=process_frames, args=(q_left, q2, expressions_dir, fallback))
+    processor2 = Process(target=process_frames, args=(q_mid, q2, expressions_dir, fallback))
+    processor3 = Process(target=process_frames, args=(q_right, q2, expressions_dir, fallback))
+    writer = Thread(target=write_frames, args=(q2, out, 3))
+
     start_time = time.time()
-    # 프레임 루프
-    frame_idx = 0
-    while True:
+    reader1.start()
+    reader2.start()
+    reader3.start()
+    processor.start()
+    processor2.start()
+    processor3.start()
+    writer.start()
+
+    reader1.join()
+    reader2.join()
+    reader3.join()
+    processor.join()
+    processor2.join()
+    processor3.join()
+    writer.join()
+    duration = time.time() - start_time
+
+    cap.release()
+    out.release()
+    print("✅ Done →", output_path)
+    print("시간",duration)
+    
+    # 경로 일관성을 위해 슬래시를 사용하는 URL 형식으로 반환
+    return output_path.replace("\\", "/")
+
+def read_frames(cap,annotations, que,frame_range): # process 수
+    start_idx, end_idx = frame_range
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_idx)  # 원하는 위치로 이동
+
+    for frame_idx in range(start_idx, end_idx):
         ret, frame = cap.read()
         if not ret:
             break
-
         ann = annotations.get(str(frame_idx), {"face": False, "expression": None})
+        que.put((frame_idx, frame, ann))
+    cap.release()
+    que.put(None)
+    
+            
+def process_frames(queue_in, queue_out, expressions_dir, fallback):
+    last_bbox = None
+    while True :
+        item = queue_in.get()
+        if item is None:
+            queue_out.put(None)
+            break
+        frame_idx, frame, ann = item
 
         if not ann["face"]:
             out_frame = frame
         else:
             expr = ann["expression"] or "base"
             face_img = cashUtil.get_face_image(expr,fallback,expressions_dir)
-            out_frame = overlay_face_on_placeholder(frame, face_img, frame_idx)
-
-        out.write(out_frame)
-        frame_idx += 1
+            out_frame,last_bbox = overlay_face_on_placeholder(frame, face_img, frame_idx,last_bbox)
+        queue_out.put((frame_idx, out_frame))
         print(frame_idx)
-    duration = time.time() - start_time
-    cap.release()
-    out.release()
-    print("✅ Done →", output_path)
+
+def write_frames(queue, out,num_workers):
+    buffer = {}
+    next_idx = 0
+    end_signals = 0
+    while True:
+        item = queue.get()
+        if item is None:
+            end_signals += 1
+            if end_signals == num_workers: ## 처리 프로세스 개수
+                break
+            continue
+        frame_idx,out_frame = item
+        buffer[frame_idx] = out_frame
+        while next_idx in buffer:
+            out.write(buffer.pop(next_idx))
+            next_idx += 1
     
-    # 경로 일관성을 위해 슬래시를 사용하는 URL 형식으로 반환
-    return output_path.replace("\\", "/")
     
+
 
 # 테스트용 메인 함수
 if __name__ == "__main__":
