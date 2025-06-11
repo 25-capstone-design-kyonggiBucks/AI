@@ -283,6 +283,7 @@ def process_video(video_path, json_path, expressions_dir, fallback_img, output_p
     cap.release()
     out.release()
     print("✅ Done →", output_path)
+    print("duration",duration)
     
     # 경로 일관성을 위해 슬래시를 사용하는 URL 형식으로 반환
     return output_path.replace("\\", "/")
