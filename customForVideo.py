@@ -8,12 +8,11 @@ from multiprocessing import Process, Queue, cpu_count,SimpleQueue
 from threading import Thread
 # ——————————————————————————————
 # 설정 경로 및 파일 (테스트용)
-video_path      = 'C:/Users/winte/Desktop/uploads/videos/default/axe.mp4'
+video_path      = 'C:/Users/winte/Desktop/uploads/videos/default/axe1.mp4'
 json_path       = 'C:/Users/winte/OneDrive/문서/GitHub/AI/annotation.json'
 expressions_dir = 'C:/Users/winte/Desktop/uploads/images'         # base.jpg, sad.jpg, mad.jpg, smile.jpg
 fallback_img    = 'C:/Users/winte/Desktop/uploads/images/happy.jpg'
 output_path     = 'C:/Users/winte/Desktop/uploads/videos/custom'
-bbox_path = "C:/Users/winte/OneDrive/문서/GitHub/AI/bbox_annotation.json"
 # ——————————————————————————————
 
 # 전역 변수: 마지막 바운딩 박스 저장용
@@ -55,7 +54,7 @@ def overlay_face_on_placeholder(frame, face_img, frame_idx=None,bbox=None):
     frame[offset_y:offset_y + face_h, offset_x:offset_x + face_w] = blended
     return frame
 
-def process_video(video_path, json_path, expressions_dir, fallback_img, output_path):
+def process_video(video_path, json_path, expressions_dir, fallback_img, output_path, title=None):
     """
     비디오 처리 함수
     
@@ -65,6 +64,7 @@ def process_video(video_path, json_path, expressions_dir, fallback_img, output_p
         expressions_dir (str): 표정 이미지가 있는 디렉토리 경로
         fallback_img (str): 기본 이미지 경로
         output_path (str): 출력 비디오 경로
+        title (str): 동화 제목
         
     Returns:
         str: 출력 비디오 경로
@@ -72,6 +72,18 @@ def process_video(video_path, json_path, expressions_dir, fallback_img, output_p
     global last_bbox
     last_bbox = None  # 함수 호출 시 초기화
     
+    # 타이틀에 따른 bbox 애노테이션 파일 선택
+    if title:
+        if "금도끼" in title or "은도끼" in title:
+            bbox_path = os.path.normpath(os.path.join(os.getcwd(), "bbox_annotation_axe.json"))
+            print(f"금도끼 은도끼 bbox 애노테이션 선택: {bbox_path}")
+        elif "아낌없이" in title or "나무" in title:
+            bbox_path = os.path.normpath(os.path.join(os.getcwd(), "bbox_annotation_tree.json"))
+            print(f"아낌없이 주는 나무 bbox 애노테이션 선택: {bbox_path}")
+    else:
+        bbox_path = os.path.normpath(os.path.join(os.getcwd(), "bbox_annotation_axe.json"))
+        print(f"기본 bbox 애노테이션 선택: {bbox_path}")
+
     # 경로 정규화
     video_path = os.path.normpath(video_path)
     json_path = os.path.normpath(json_path)
@@ -170,5 +182,4 @@ if __name__ == "__main__":
     expressions_dir = 'C:/Users/winte/Desktop/uploads/images'         # base.jpg, sad.jpg, mad.jpg, smile.jpg
     fallback_img    = 'C:/Users/winte/Desktop/uploads/images/happy.jpg'
     output_path     = 'C:/Users/winte/Desktop/uploads/videos/custom'
-    bbox_path = "C:/Users/winte/OneDrive/문서/GitHub/AI/bbox_annotation.json"
     process_video(video_path, json_path, expressions_dir, fallback_img, output_path)

@@ -170,22 +170,40 @@ def create_video_with_defaultVoice():
         
         # 입력 비디오 경로 설정 - 타이틀에 따라 다른 영상 선택
         if "금도끼" in title or "은도끼" in title:
-            input_video_path = os.path.normpath("C:/Users/winte/Desktop/uploads/videos/default/axe.mp4")
+            input_video_path = os.path.normpath("C:/Users/winte/Desktop/uploads/videos/default/axe1.mp4")
+            # 금도끼 은도끼 전용 애노테이션 파일 사용
+            json_path = os.path.normpath(os.path.join(os.getcwd(), "annotation_axe.json"))
+            video_type = "axe"
             print(f"금도끼 은도끼 영상 선택: {input_video_path}")
+            print(f"금도끼 은도끼 애노테이션 선택: {json_path}")
         elif "아낌없이" in title or "나무" in title:
             input_video_path = os.path.normpath("C:/Users/winte/Desktop/uploads/videos/default/tree.mp4")
+            # 아낌없이 주는 나무 전용 애노테이션 파일 사용
+            json_path = os.path.normpath(os.path.join(os.getcwd(), "annotation_tree.json"))
+            video_type = "tree"
             print(f"아낌없이 주는 나무 영상 선택: {input_video_path}")
+            print(f"아낌없이 주는 나무 애노테이션 선택: {json_path}")
         else:
             # 기본 영상 (금도끼 은도끼)
-            input_video_path = os.path.normpath("C:/Users/winte/Desktop/uploads/videos/default/axe.mp4")
+            input_video_path = os.path.normpath("C:/Users/winte/Desktop/uploads/videos/default/axe1.mp4")
+            # 기본 애노테이션 파일 사용
+            json_path = os.path.normpath(os.path.join(os.getcwd(), "annotation.json"))
+            video_type = "default"
             print(f"기본 영상 선택: {input_video_path}")
+            print(f"기본 애노테이션 선택: {json_path}")
         
         # 출력 디렉토리 설정 - 경로 일관성을 위해 normpath 사용
         output_dir = os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], "videos/custom"))
         os.makedirs(output_dir, exist_ok=True)
         
-        # 출력 파일명 생성 - UUID 전체 사용
+        # UUID 생성
         unique_id = str(uuid.uuid4())  # UUID 전체 사용
+        
+        # 표정 이미지 디렉토리 설정 - 사용자별 디렉토리 생성
+        expressions_dir = os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], "expressions", unique_id))
+        os.makedirs(expressions_dir, exist_ok=True)
+        
+        # 출력 파일명 생성
         output_filename = f"{unique_id}_{title}.mp4"
         output_path = os.path.normpath(os.path.join(output_dir, output_filename))
         
@@ -193,20 +211,6 @@ def create_video_with_defaultVoice():
         print(f"출력 디렉토리: {output_dir}")
         print(f"출력 경로: {output_path}")
         print(f"생성된 파일명: {output_filename}")
-        
-        # 애노테이션 JSON 사용 - 제공된 파일 활용
-        json_path = os.path.normpath(os.path.join(os.getcwd(), "annotation.json"))
-        if not os.path.exists(json_path):
-            return jsonify({
-                "success": False,
-                "message": "애노테이션 파일이 존재하지 않습니다."
-            }), 400
-        else:
-            print(f"기존 annotation.json 파일을 사용합니다: {json_path}")
-        
-        # 표정 이미지 경로 설정 - 사용자별 디렉토리 생성
-        expressions_dir = os.path.normpath(os.path.join(app.config['UPLOAD_FOLDER'], "expressions", unique_id))
-        os.makedirs(expressions_dir, exist_ok=True)
         
         # 이미지 URL에서 파일 경로 추출 및 복사
         # 스프링 백엔드의 FacialExpression enum과 일치시킴
@@ -253,7 +257,8 @@ def create_video_with_defaultVoice():
             json_path=json_path,
             expressions_dir=expressions_dir,
             fallback_img=fallback_img,
-            output_path=output_path
+            output_path=output_path,
+            title=title  # 타이틀 전달
         )
         
         # 상대 URL 경로 생성 - 스프링 백엔드에서 기대하는 형식으로 변환
